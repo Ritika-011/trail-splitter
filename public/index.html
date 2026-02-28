@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trail Splitter 🏔️</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bark: #2c1a0e;
+    --moss: #4a6741;
+    --sage: #7a9e72;
+    --mist: #c8d8c4;
+    --cream: #f5f0e8;
+    --stone: #8c8070;
+    --sky: #d4e8c2;
+    --accent: #c87941;
+    --red: #b84040;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(74,103,65,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(200,121,65,0.08) 0%, transparent 50%);
+  }
+
+  header {
+    background: var(--bark);
+    color: var(--cream);
+    padding: 28px 32px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0; height: 28px;
+    background: var(--cream);
+    clip-path: ellipse(55% 100% at 50% 100%);
+  }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; }
+  header p { color: var(--mist); font-size: 0.88rem; margin-top: 4px; font-family: 'DM Mono', monospace; }
+
+  /* Sync status bar */
+  .sync-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    background: white;
+    border-bottom: 1px solid var(--mist);
+    font-size: 0.8rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--stone);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+  .sync-dot.synced  { background: var(--sage); }
+  .sync-dot.error   { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .sync-bar span { flex: 1; }
+  .sync-btn {
+    background: none; border: 1px solid var(--mist); border-radius: 6px;
+    padding: 3px 10px; cursor: pointer; font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; color: var(--stone); transition: all 0.2s;
+  }
+  .sync-btn:hover { border-color: var(--moss); color: var(--moss); }
+
+  .container { max-width: 700px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  .tabs {
+    display: flex; background: white; border-radius: 14px;
+    padding: 6px; gap: 6px; margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(44,26,14,0.07);
+  }
+  .tab {
+    flex: 1; padding: 11px; border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
+    cursor: pointer; background: transparent; color: var(--stone); transition: all 0.2s;
+  }
+  .tab.active { background: var(--moss); color: white; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: white; border-radius: 16px; padding: 26px;
+    box-shadow: 0 4px 20px rgba(44,26,14,0.08);
+    margin-bottom: 20px; border: 1px solid rgba(44,26,14,0.06);
+  }
+  .card h2 { font-family: 'Playfair Display', serif; color: var(--bark); font-size: 1.2rem; margin-bottom: 18px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 0.75rem; font-weight: 500; color: var(--stone); text-transform: uppercase; letter-spacing: 0.8px; font-family: 'DM Mono', monospace; }
+
+  input, textarea, select {
+    width: 100%; padding: 11px 13px;
+    border: 1.5px solid var(--mist); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.93rem; color: var(--bark);
+    background: var(--cream); transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--moss); box-shadow: 0 0 0 3px rgba(74,103,65,0.12);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .btn {
+    width: 100%; padding: 13px; background: var(--moss); color: white;
+    border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.97rem; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-top: 4px;
+  }
+  .btn:hover { background: var(--bark); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: var(--mist); color: var(--stone); cursor: not-allowed; }
+
+  .btn-sm {
+    width: auto; padding: 7px 14px; font-size: 0.83rem; border-radius: 8px;
+    background: var(--moss); color: white; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-weight: 500; transition: background 0.2s;
+  }
+  .btn-sm:hover { background: var(--bark); }
+  .btn-outline {
+    background: transparent; border: 1.5px solid var(--mist); color: var(--stone);
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 0.83rem;
+    font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--moss); color: var(--moss); }
+
+  .people-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .pill {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+    background: var(--sky); border-radius: 20px; font-size: 0.85rem;
+    font-weight: 500; color: var(--moss);
+  }
+  .pill .remove { cursor: pointer; color: var(--stone); font-size: 0.8rem; }
+  .pill .remove:hover { color: var(--red); }
+
+  .item-row {
+    display: grid; grid-template-columns: 1fr 100px; gap: 10px;
+    align-items: start; margin-bottom: 10px; padding: 12px;
+    background: var(--cream); border-radius: 10px; border: 1px solid var(--mist);
+  }
+  .item-row-top { display: flex; gap: 8px; align-items: center; }
+  .person-checkboxes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .person-check {
+    display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+    border-radius: 16px; border: 1.5px solid var(--mist); cursor: pointer;
+    font-size: 0.8rem; color: var(--stone); transition: all 0.15s; user-select: none;
+  }
+  .person-check input { display: none; }
+  .person-check.checked { background: var(--moss); border-color: var(--moss); color: white; }
+  .add-item-row { display: flex; gap: 8px; margin-top: 4px; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+  .stat {
+    background: white; border-radius: 14px; padding: 18px 14px; text-align: center;
+    box-shadow: 0 2px 12px rgba(44,26,14,0.07); border: 1px solid rgba(44,26,14,0.06);
+  }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 500; color: var(--bark); }
+  .stat-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--stone); margin-top: 4px; }
+
+  .entry {
+    background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+    border: 1px solid rgba(44,26,14,0.06); box-shadow: 0 2px 8px rgba(44,26,14,0.05);
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .entry-header { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--sky);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 0.9rem; color: var(--moss);
+    font-weight: 700; flex-shrink: 0; text-transform: uppercase;
+  }
+  .entry-name { font-weight: 500; color: var(--bark); font-size: 0.93rem; }
+  .entry-desc { font-size: 0.8rem; color: var(--stone); }
+  .entry-amount { font-family: 'DM Mono', monospace; font-size: 1rem; color: var(--moss); font-weight: 500; margin-left: auto; }
+  .del-btn { background: none; border: none; cursor: pointer; color: #ccc; font-size: 1rem; padding: 4px; transition: color 0.2s; }
+  .del-btn:hover { color: var(--red); }
+  .entry-items { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--mist); }
+  .entry-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.82rem; color: var(--stone); }
+  .item-who { color: var(--moss); font-size: 0.75rem; margin-top: 1px; }
+  .entry-item-right { font-family: 'DM Mono', monospace; font-size: 0.82rem; text-align: right; }
+
+  .settle-card { background: var(--bark); color: var(--cream); border-radius: 16px; padding: 22px 26px; margin-top: 24px; }
+  .settle-card h2 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 16px; color: var(--sky); }
+  .settle-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 0.88rem; }
+  .settle-row:last-child { border-bottom: none; }
+  .arrow { color: var(--accent); }
+  .settle-amount { margin-left: auto; font-family: 'DM Mono', monospace; color: var(--accent); font-weight: 500; }
+
+  .balance-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .balance-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--stone); font-weight: 500; padding: 6px 8px; border-bottom: 1.5px solid var(--mist); font-family: 'DM Mono', monospace; }
+  .balance-table td { padding: 9px 8px; font-size: 0.88rem; border-bottom: 1px solid rgba(44,26,14,0.05); color: var(--bark); }
+  .balance-table td.mono { font-family: 'DM Mono', monospace; }
+  .balance-table td.pos { color: var(--moss); }
+  .balance-table td.neg { color: var(--red); }
+
+  .no-entries { text-align: center; color: var(--stone); font-size: 0.88rem; padding: 20px; }
+  .section-title { font-family: 'Playfair Display', serif; color: var(--bark); font-size: 1.1rem; margin-bottom: 12px; }
+  .all-settled { text-align: center; color: var(--sage); padding: 8px; font-weight: 500; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500; margin-left: 6px; }
+  .tag-itemized { background: rgba(200,121,65,0.15); color: var(--accent); }
+  .tag-simple { background: var(--sky); color: var(--moss); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--bark); color: var(--cream); padding: 12px 20px; border-radius: 10px;
+    font-size: 0.88rem; font-family: 'DM Mono', monospace; transition: transform 0.3s; z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .form-row { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    header h1 { font-size: 1.7rem; }
+    .item-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏔️ Trail Splitter</h1>
+  <p>Shared expense tracker for your hike group</p>
+</header>
+
+<div class="sync-bar">
+  <div class="sync-dot" id="sync-dot"></div>
+  <span id="sync-label">Connecting...</span>
+  <button class="sync-btn" onclick="loadData()">↻ Refresh</button>
+</div>
+
+<div class="container">
+
+  <!-- People -->
+  <div class="card">
+    <h2>👥 Who's in the group?</h2>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="new-person" placeholder="Enter name and press Add" style="flex:1" onkeydown="if(event.key==='Enter')addPerson()">
+      <button class="btn-sm" onclick="addPerson()">Add</button>
+    </div>
+    <div class="people-pills" id="people-pills">
+      <span style="color:var(--stone);font-size:0.85rem;padding:6px 0">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('simple')">💰 Simple Payment</button>
+    <button class="tab" onclick="switchTab('itemized')">🧾 Itemized Bill</button>
+  </div>
+
+  <!-- Simple Panel -->
+  <div class="panel active" id="panel-simple">
+    <div class="card">
+      <h2>Add a Payment</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Who Paid?</label>
+          <select id="s-payer"><option value="">Select person...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Amount (₹)</label>
+          <input type="number" id="s-amount" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>What was it for?</label>
+        <textarea id="s-desc" placeholder="e.g. Bus tickets, Parking..."></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Split equally among</label>
+        <div class="person-checkboxes" id="s-split-among"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-outline" onclick="selectAll('s-split-among')">All</button>
+          <button class="btn-outline" onclick="selectNone('s-split-among')">None</button>
+        </div>
+      </div>
+      <button class="btn" id="btn-simple" onclick="addSimple()">+ Add Payment</button>
+    </div>
+  </div>
+
+  <!-- Itemized Panel -->
+  <div class="panel" id="panel-itemized">
+    <div class="card">
+      <h2>Add an Itemized Bill</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Who Paid the Bill?</label>
+          <select id="i-payer"><option value="">Select person...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Bill Title</label>
+          <input type="text" id="i-title" placeholder="e.g. Restaurant, Petrol...">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:block;margin-bottom:8px">Items</label>
+        <div id="item-rows"></div>
+        <div class="add-item-row">
+          <button class="btn-outline" onclick="addItemRow()">+ Add Item</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1.5px solid var(--mist)">
+        <span style="font-weight:500;color:var(--bark)">Total Bill</span>
+        <span id="i-total-display" style="font-family:'DM Mono',monospace;font-size:1.1rem;color:var(--moss);font-weight:500">₹0.00</span>
+      </div>
+      <button class="btn" id="btn-itemized" onclick="addItemized()">+ Add Bill</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="summary-grid">
+    <div class="stat"><div class="stat-val" id="stat-total">₹0</div><div class="stat-lbl">Total Spent</div></div>
+    <div class="stat"><div class="stat-val" id="stat-people">0</div><div class="stat-lbl">People</div></div>
+    <div class="stat"><div class="stat-val" id="stat-per">₹0</div><div class="stat-lbl">Avg per Person</div></div>
+  </div>
+
+  <!-- Entries + Results -->
+  <div id="entries-section" style="display:none">
+    <div class="section-title">Payments & Bills</div>
+    <div id="entries-list"></div>
+    <div class="card" style="margin-top:8px">
+      <h2>📊 Balance Sheet</h2>
+      <table class="balance-table">
+        <thead><tr><th>Person</th><th>Paid</th><th>Owes</th><th>Balance</th></tr></thead>
+        <tbody id="balance-body"></tbody>
+      </table>
+    </div>
+    <div class="settle-card">
+      <h2>💸 Who Owes Whom</h2>
+      <div id="settlements"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────────────────
+  // This will call /api/data on the same domain after deployment.
+  const API = '/api/data';
+
+  // ── State ──────────────────────────────────────────────────────────────
+  let people = [];
+  let entries = [];
+  let isSaving = false;
+
+  // ── Sync ───────────────────────────────────────────────────────────────
+  function setSyncState(state, msg) {
+    const dot = document.getElementById('sync-dot');
+    const lbl = document.getElementById('sync-label');
+    dot.className = 'sync-dot ' + state;
+    lbl.textContent = msg;
+  }
+
+  async function loadData() {
+    setSyncState('syncing', 'Loading...');
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('Server error');
+      const data = await res.json();
+      people = data.people || [];
+      entries = data.entries || [];
+      setSyncState('synced', 'Up to date · ' + new Date().toLocaleTimeString());
+      renderPeople();
+      renderPayerDropdowns();
+      renderSplitCheckboxes();
+      renderAll();
+    } catch (e) {
+      setSyncState('error', 'Could not connect to server');
+      showToast('⚠️ Could not load data. Is the server running?');
+    }
+  }
+
+  async function saveData() {
+    if (isSaving) return;
+    isSaving = true;
+    setSyncState('syncing', 'Saving...');
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ people, entries })
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setSyncState('synced', 'Saved · ' + new Date().toLocaleTimeString());
+    } catch (e) {
+      setSyncState('error', 'Save failed');
+      showToast('⚠️ Could not save. Changes may be lost!');
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Auto-refresh every 30 seconds so all group members see updates
+  setInterval(loadData, 30000);
+
+  // ── People ─────────────────────────────────────────────────────────────
+  function addPerson() {
+    const inp = document.getElementById('new-person');
+    const name = inp.value.trim();
+    if (!name) return;
+    if (people.some(p => p.toLowerCase() === name.toLowerCase())) {
+      showToast('That person is already in the group!'); return;
+    }
+    people.push(name);
+    inp.value = '';
+    renderPeople();
+    renderPayerDropdowns();
+    renderSplitCheckboxes();
+    renderAll();
+    saveData();
+  }
+
+  function removePerson(name) {
+    if (!confirm(`Remove ${name} from the group?`)) return;
+    people = people.filter(p => p !== name);
+    renderPeople();
+    renderPayerDropdowns();
+    renderSplitCheckboxes();
+    renderAll();
+    saveData();
+  }
+
+  function renderPeople() {
+    const el = document.getElementById('people-pills');
+    if (people.length === 0) {
+      el.innerHTML = '<span style="color:var(--stone);font-size:0.85rem;padding:6px 0">No one added yet...</span>';
+      return;
+    }
+    el.innerHTML = people.map(p => `
+      <div class="pill">${esc(p)}
+        <span class="remove" onclick="removePerson('${esc(p)}')" title="Remove">✕</span>
+      </div>`).join('');
+  }
+
+  function renderPayerDropdowns() {
+    ['s-payer','i-payer'].forEach(id => {
+      const sel = document.getElementById(id);
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Select person...</option>' +
+        people.map(p => `<option value="${esc(p)}"${cur===p?' selected':''}>${esc(p)}</option>`).join('');
+    });
+  }
+
+  function renderSplitCheckboxes() {
+    document.getElementById('s-split-among').innerHTML = people.map(p => `
+      <label class="person-check checked" >
+        <input type="checkbox" checked onchange="toggleCheck(this)">
+        ${esc(p)}
+      </label>`).join('');
+  }
+
+  function toggleCheck(inp) { inp.closest('label').classList.toggle('checked', inp.checked); }
+  function selectAll(id) {
+    document.querySelectorAll(`#${id} .person-check`).forEach(l => { l.classList.add('checked'); l.querySelector('input').checked=true; });
+  }
+  function selectNone(id) {
+    document.querySelectorAll(`#${id} .person-check`).forEach(l => { l.classList.remove('checked'); l.querySelector('input').checked=false; });
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='simple')||(i===1&&tab==='itemized')));
+    document.getElementById('panel-simple').classList.toggle('active', tab==='simple');
+    document.getElementById('panel-itemized').classList.toggle('active', tab==='itemized');
+  }
+
+  // ── Item Rows ──────────────────────────────────────────────────────────
+  let itemRowId = 0;
+  function addItemRow() {
+    const id = ++itemRowId;
+    const div = document.createElement('div');
+    div.className = 'item-row'; div.id = `ir-${id}`;
+    div.innerHTML = `
+      <div>
+        <div class="item-row-top">
+          <input type="text" placeholder="Item name" style="flex:1" oninput="updateTotal()">
+          <button class="btn-outline" onclick="removeItemRow(${id})">✕</button>
+        </div>
+        <div class="person-checkboxes" style="margin-top:8px">
+          ${people.map(p => `<label class="person-check"><input type="checkbox" onchange="toggleCheck(this);updateTotal()"> ${esc(p)}</label>`).join('')}
+        </div>
+      </div>
+      <input type="number" placeholder="₹" min="0" step="0.01" style="text-align:right" oninput="updateTotal()">`;
+    document.getElementById('item-rows').appendChild(div);
+  }
+  function removeItemRow(id) { document.getElementById(`ir-${id}`)?.remove(); updateTotal(); }
+  function updateTotal() {
+    let t = 0;
+    document.querySelectorAll('#item-rows .item-row').forEach(r => { t += parseFloat(r.querySelector('input[type=number]').value)||0; });
+    document.getElementById('i-total-display').textContent = '₹'+t.toFixed(2);
+  }
+
+  // ── Add Simple ─────────────────────────────────────────────────────────
+  async function addSimple() {
+    const payer = document.getElementById('s-payer').value;
+    const amount = parseFloat(document.getElementById('s-amount').value);
+    const desc = document.getElementById('s-desc').value.trim();
+    if (!payer) { showToast('Select who paid!'); return; }
+    if (!amount || amount <= 0) { showToast('Enter a valid amount!'); return; }
+    const checked = [...document.querySelectorAll('#s-split-among .person-check.checked')].map(l => l.textContent.trim());
+    if (checked.length === 0) { showToast('Select at least one person to split among!'); return; }
+
+    const btn = document.getElementById('btn-simple');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    entries.push({ id: Date.now(), type:'simple', payer, amount, desc: desc||'Payment', splitAmong: checked });
+    renderAll();
+    await saveData();
+    document.getElementById('s-amount').value = '';
+    document.getElementById('s-desc').value = '';
+    selectAll('s-split-among');
+    showToast('✅ Payment added!');
+    btn.disabled = false; btn.textContent = '+ Add Payment';
+  }
+
+  // ── Add Itemized ───────────────────────────────────────────────────────
+  async function addItemized() {
+    const payer = document.getElementById('i-payer').value;
+    const title = document.getElementById('i-title').value.trim();
+    if (!payer) { showToast('Select who paid!'); return; }
+
+    const items = [];
+    let total = 0, valid = true;
+    document.querySelectorAll('#item-rows .item-row').forEach(row => {
+      const name = row.querySelector('input[type=text]').value.trim();
+      const amt = parseFloat(row.querySelector('input[type=number]').value)||0;
+      const who = [...row.querySelectorAll('.person-check.checked')].map(l => l.textContent.trim());
+      if (!name || amt <= 0 || who.length === 0) { valid = false; return; }
+      items.push({ name, amt, who }); total += amt;
+    });
+
+    if (!valid || items.length === 0) { showToast('Each item needs a name, amount & at least one person!'); return; }
+
+    const btn = document.getElementById('btn-itemized');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    entries.push({ id: Date.now(), type:'itemized', payer, amount: total, desc: title||'Bill', items });
+    renderAll();
+    await saveData();
+    document.getElementById('i-title').value = '';
+    document.getElementById('item-rows').innerHTML = '';
+    document.getElementById('i-total-display').textContent = '₹0.00';
+    addItemRow();
+    showToast('✅ Bill added!');
+    btn.disabled = false; btn.textContent = '+ Add Bill';
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  function renderAll() {
+    const section = document.getElementById('entries-section');
+    if (entries.length === 0 || people.length === 0) {
+      section.style.display = 'none';
+      updateStats(0, 0); return;
+    }
+    section.style.display = 'block';
+
+    const paid = {}, owes = {};
+    people.forEach(p => { paid[p] = 0; owes[p] = 0; });
+
+    for (const e of entries) {
+      paid[e.payer] = (paid[e.payer]||0) + e.amount;
+      if (e.type === 'simple') {
+        const share = e.amount / e.splitAmong.length;
+        e.splitAmong.forEach(p => { owes[p] = (owes[p]||0) + share; });
+      } else {
+        e.items.forEach(item => {
+          const share = item.amt / item.who.length;
+          item.who.forEach(p => { owes[p] = (owes[p]||0) + share; });
+        });
+      }
+    }
+
+    const total = Object.values(paid).reduce((a,b)=>a+b,0);
+    updateStats(total, people.length);
+
+    const balances = {};
+    people.forEach(p => { balances[p] = (paid[p]||0) - (owes[p]||0); });
+
+    // Balance table
+    document.getElementById('balance-body').innerHTML = people.map(p => {
+      const b = balances[p];
+      const cls = b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : '';
+      return `<tr>
+        <td><strong>${esc(p)}</strong></td>
+        <td class="mono">₹${fmt(paid[p]||0)}</td>
+        <td class="mono">₹${fmt(owes[p]||0)}</td>
+        <td class="mono ${cls}">${b > 0.005 ? '+₹'+fmt(b)+' (gets back)' : b < -0.005 ? '-₹'+fmt(Math.abs(b))+' (owes)' : '✓ settled'}</td>
+      </tr>`;
+    }).join('');
+
+    // Entries list
+    document.getElementById('entries-list').innerHTML = [...entries].reverse().map(e => {
+      const itemsHtml = e.type === 'itemized'
+        ? `<div class="entry-items">${e.items.map(item => `
+            <div class="entry-item">
+              <div>${esc(item.name)}<div class="item-who">→ ${item.who.join(', ')} (₹${fmt(item.amt/item.who.length)} each)</div></div>
+              <div class="entry-item-right">₹${fmt(item.amt)}</div>
+            </div>`).join('')}</div>`
+        : `<div class="entry-items"><div class="entry-item">
+            <div>Split equally<div class="item-who">→ ${e.splitAmong.join(', ')} (₹${fmt(e.amount/e.splitAmong.length)} each)</div></div>
+          </div></div>`;
+      return `<div class="entry">
+        <div class="entry-header">
+          <div class="avatar">${initials(e.payer)}</div>
+          <div class="entry-body">
+            <div class="entry-name">${esc(e.payer)} <span class="tag ${e.type==='itemized'?'tag-itemized':'tag-simple'}">${e.type}</span></div>
+            <div class="entry-desc">${esc(e.desc)}</div>
+          </div>
+          <div class="entry-amount">₹${fmt(e.amount)}</div>
+          <button class="del-btn" onclick="deleteEntry(${e.id})">✕</button>
+        </div>${itemsHtml}</div>`;
+    }).join('');
+
+    // Settlement
+    const creditors = Object.entries(balances).filter(([,b])=>b>0.005).sort((a,b)=>b[1]-a[1]);
+    const debtors   = Object.entries(balances).filter(([,b])=>b<-0.005).sort((a,b)=>a[1]-b[1]);
+    const txns = [];
+    let ci=0,di=0,cbal=creditors[0]?.[1]||0,dbal=debtors[0]?.[1]?-debtors[0][1]:0;
+    while (ci<creditors.length && di<debtors.length) {
+      const amt = Math.min(cbal,dbal);
+      txns.push({from:debtors[di][0],to:creditors[ci][0],amt});
+      cbal-=amt; dbal-=amt;
+      if(cbal<0.005){ci++;if(ci<creditors.length)cbal=creditors[ci][1];}
+      if(dbal<0.005){di++;if(di<debtors.length)dbal=-debtors[di][1];}
+    }
+    document.getElementById('settlements').innerHTML = txns.length===0
+      ? '<div class="all-settled">✅ Everyone is settled up!</div>'
+      : txns.map(t=>`<div class="settle-row"><strong>${esc(t.from)}</strong><span class="arrow">→</span><span>${esc(t.to)}</span><span class="settle-amount">₹${fmt(t.amt)}</span></div>`).join('');
+  }
+
+  async function deleteEntry(id) {
+    if (!confirm('Remove this entry?')) return;
+    entries = entries.filter(e => e.id !== id);
+    renderAll();
+    await saveData();
+    showToast('🗑️ Entry removed');
+  }
+
+  function updateStats(total, n) {
+    document.getElementById('stat-total').textContent = '₹'+fmt(total);
+    document.getElementById('stat-people').textContent = n;
+    document.getElementById('stat-per').textContent = n>0?'₹'+fmt(total/n):'₹0';
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  function fmt(n) { return (n||0).toFixed(2); }
+  function initials(n) { return (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  loadData();
+  addItemRow();
+</script>
+</body>
+</html>
